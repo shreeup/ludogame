@@ -37,6 +37,7 @@ interface GameStore {
   connectWebSocket: () => void;
   handleMessage: (event: MessageEvent) => void;
   canMoveToken: (tokenId: string) => boolean;
+  hasValidMoves: () => boolean;
 }
 
 const useGameStore = create<GameStore>((set, get) => ({
@@ -72,38 +73,45 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     if (!socket || !gameState || !playerId) return;
 
-    if (socket && gameState && playerId) {
-      const currentPlayer = gameState.players[gameState.currentTurn];
+    const currentPlayer = gameState.players[gameState.currentTurn];
 
-      if (currentPlayer.id === playerId) {
-        socket.send(
-          JSON.stringify({
-            type: 'ROLL_DICE',
-            gameId: gameState.gameId,
-            playerId,
-          })
-        );
-
-        set(state => ({
-          gameState: state.gameState
-            ? { ...state.gameState, diceUsed: false }
-            : null,
-        }));
-      } else {
-        console.error('Not your turn to roll dice');
+    if (currentPlayer.id === playerId) {
+      // Check if previous dice roll hasn't been used
+      if (gameState.diceRoll !== -1 && !gameState.diceUsed) {
+        // Check if there are any valid moves remaining
+        if (get().hasValidMoves()) {
+          console.error('Must move a token before rolling again');
+          return;
+        }
       }
+
+      socket.send(
+        JSON.stringify({
+          type: 'ROLL_DICE',
+          gameId: gameState.gameId,
+          playerId,
+        })
+      );
+
+      set(state => ({
+        gameState: state.gameState
+          ? { ...state.gameState, diceUsed: false }
+          : null,
+      }));
+    } else {
+      console.error('Not your turn to roll dice');
     }
   },
 
   canMoveToken: (tokenId: string) => {
     const { gameState, playerId } = get();
-    console.log(gameState);
+
     if (!gameState || !playerId) return false;
 
     const currentPlayer = gameState.players[gameState.currentTurn];
     if (currentPlayer.id !== playerId) return false;
 
-    // Require dice roll
+    // Require dice roll and not already used
     if (gameState.diceRoll === -1 || gameState.diceUsed) return false;
 
     const token = currentPlayer.tokens.find(t => t.id === tokenId);
@@ -197,6 +205,34 @@ const useGameStore = create<GameStore>((set, get) => ({
     } catch (error) {
       console.error('Message parsing error:', error);
     }
+  },
+
+  hasValidMoves: () => {
+    const { gameState, playerId } = get();
+
+    if (!gameState || !playerId) return false;
+
+    const currentPlayer = gameState.players[gameState.currentTurn];
+
+    // If it's not the current player's turn, no moves are valid
+    if (currentPlayer.id !== playerId) return false;
+
+    // No dice rolled or dice already used
+    if (gameState.diceRoll === -1 || gameState.diceUsed) return false;
+
+    // Check if any token can be moved
+    return currentPlayer.tokens.some(token => {
+      // Starting token requires 6
+      if (token.position === 0 && gameState.diceRoll !== 6) return false;
+
+      // Token already at winning position
+      if (token.position === WINNING_POSITION) return false;
+
+      // Token + current roll > winning position
+      if (token.position + gameState.diceRoll > WINNING_POSITION) return false;
+
+      return true;
+    });
   },
 }));
 

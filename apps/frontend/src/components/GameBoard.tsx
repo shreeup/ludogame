@@ -1,6 +1,7 @@
 // import React, { useEffect } from 'react';
 // import useGameStore from '../stores/gameStore';
 
+import { useEffect, useState } from 'react';
 import useGameStore from '../stores/gameStore';
 
 // const GameBoard: React.FC = () => {
@@ -145,12 +146,80 @@ const StopIcon = () => (
 );
 
 const LudoBoard = () => {
-  const { gameState, rollDice, moveToken, canMoveToken, playerId } =
-    useGameStore();
+  const {
+    gameState,
+    rollDice,
+    moveToken,
+    canMoveToken,
+    playerId,
+    hasValidMoves,
+  } = useGameStore();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   if (!gameState) {
     return <div>Loading game...</div>;
   }
+
+  const handleRollDice = () => {
+    // Check if previous roll has unmoved tokens
+    if (gameState.diceRoll !== -1 && !gameState.diceUsed) {
+      const hasUnmovedValidTokens = hasValidMoves();
+
+      if (hasUnmovedValidTokens) {
+        setErrorMessage('You must move a token before rolling again!');
+        return;
+      }
+    }
+
+    rollDice();
+  };
+
+  const handleTokenClick = (tokenId: string) => {
+    // Prevent moving tokens if no dice roll
+    if (gameState.diceRoll === -1) {
+      setErrorMessage('Roll the dice first!');
+      return;
+    }
+
+    // Prevent moving tokens after already used
+    if (gameState.diceUsed) {
+      setErrorMessage('Dice roll already used. Wait for next turn!');
+      return;
+    }
+
+    // Validate token move
+    if (!canMoveToken(tokenId)) {
+      setErrorMessage(
+        'Invalid token move. Check dice roll and token position!'
+      );
+      return;
+    }
+
+    moveToken(tokenId);
+  };
+
+  const getTokenStatus = (token: any, playerIndex: number) => {
+    const isCurrentPlayer = playerIndex === gameState.currentTurn;
+    const canMove = isCurrentPlayer && canMoveToken(token.id);
+
+    if (canMove) {
+      return ' animate-pulse cursor-pointer';
+    }
+
+    if (token.position === 0) {
+      return ' opacity-50';
+    }
+
+    return '';
+  };
 
   // Color mapping for Ludo board players
   const playerColors: { [key: number]: string } = {
@@ -163,6 +232,15 @@ const LudoBoard = () => {
   const renderLudoBoard = () => {
     return (
       <div className="relative w-[600px] h-[600px] bg-white shadow-2xl rounded-3xl border-8 border-gray-200 p-4">
+        {errorMessage && (
+          <div
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 
+          bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg"
+          >
+            {errorMessage}
+          </div>
+        )}
+
         {/* Central white area */}
         <div className="absolute inset-[10%] bg-gray-100 rounded-2xl"></div>
 
@@ -189,19 +267,24 @@ const LudoBoard = () => {
                 {player.tokens.map(token => (
                   <div
                     key={token.id}
-                    className={`w-12 h-12 rounded-full ${playerColors[index]}
+                    className={`token p-2 rounded-full w-12 h-12 ${
+                      playerColors[index]
                     }
-                      ${
-                        canMoveToken(token.id)
-                          ? 'animate-pulse cursor-pointer'
-                          : 'opacity-50'
+                   transition-all duration-300  flex items-center justify-center text-white font-bold
+                   ${getTokenStatus(token, index)}`}
+                    onClick={() => {
+                      if (index === gameState.currentTurn) {
+                        handleTokenClick(token.id);
                       }
-                      flex items-center justify-center text-white font-bold`}
-                    onClick={() =>
-                      canMoveToken(token.id) && moveToken(token.id)
-                    }
+                    }}
                   >
-                    {token.position === 0 ? <HomeIcon /> : token.position}
+                    {token.position === 0 ? (
+                      <div className="w-12 h-12">
+                        <HomeIcon />
+                      </div>
+                    ) : (
+                      token.position
+                    )}
                   </div>
                 ))}
               </div>
@@ -219,9 +302,10 @@ const LudoBoard = () => {
           </div>
 
           <button
-            onClick={rollDice}
+            onClick={handleRollDice}
             disabled={gameState.diceRoll !== -1 && gameState.diceRoll !== 6}
-            className={`bg-indigo-500 text-white p-4 rounded-xl hover:bg-indigo-600 disabled:opacity-50 transition flex items-center ${
+            className={`px-6 py-2 bg-blue-500 text-white rounded-lg 
+            disabled:opacity-50 hover:bg-blue-600 ${
               playerId != gameState.players[gameState.currentTurn].id
                 ? 'invisible'
                 : 'visible'
