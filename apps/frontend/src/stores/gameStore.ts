@@ -6,6 +6,7 @@ const WINNING_POSITION = 57;
 const TokenSchema = z.object({
   id: z.string(),
   position: z.number(),
+  tokencolor: z.string(),
 });
 
 const PlayerSchema = z.object({
