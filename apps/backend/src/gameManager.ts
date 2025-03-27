@@ -1,7 +1,15 @@
 import { nanoid } from 'nanoid';
+import WebSocket from 'ws';
 
 const SAFE_ZONES = new Set([0, 8, 13, 21, 26, 34, 39, 47, 52]); // Example safe positions
 const WINNING_POSITION = 57; // Assuming 57 is the final position in Ludo
+
+type PlayerColor = 'RED' | 'GREEN' | 'BLUE' | 'YELLOW';
+
+type Token = {
+  id: string;
+  position: number;
+};
 
 type Game = {
   id: string;
@@ -10,9 +18,14 @@ type Game = {
   createdAt: number;
   sockets: Map<string, WebSocket>;
   currentTurn: number;
-  positions: Map<string, number>;
+  tokens: Map<string, Token[]>;
   timeoutId: NodeJS.Timeout | null;
+  lastDiceRoll: number;
+  playerColors: Map<string, PlayerColor>;
+  diceUsed: boolean;
 };
+
+const COLORS: PlayerColor[] = ['RED', 'GREEN', 'BLUE', 'YELLOW'];
 
 const games = new Map<string, Game>();
 
@@ -25,8 +38,11 @@ export const createGame = (): string => {
     createdAt: Date.now(),
     sockets: new Map<string, WebSocket>(),
     currentTurn: 0,
-    positions: new Map<string, number>(),
+    tokens: new Map<string, Token[]>(),
     timeoutId: null,
+    lastDiceRoll: -1,
+    playerColors: new Map<string, PlayerColor>(),
+    diceUsed: false,
   });
   return gameId;
 };
@@ -41,8 +57,24 @@ export const joinGame = (
 
   if (!game.sockets.has(playerId)) {
     if (game.players.length < 4) {
+      // Assign a color to the player
+      const availableColors = COLORS.filter(
+        color => ![...game.playerColors.values()].includes(color)
+      );
+      const playerColor = availableColors[0];
+
       game.players.push(playerId);
       game.sockets.set(playerId, ws);
+      game.playerColors.set(playerId, playerColor);
+
+      // Initialize tokens for the player
+      game.tokens.set(playerId, [
+        { id: `${playerId}_1`, position: 0 },
+        { id: `${playerId}_2`, position: 0 },
+        { id: `${playerId}_3`, position: 0 },
+        { id: `${playerId}_4`, position: 0 },
+      ]);
+
       return 'player';
     } else {
       game.spectators.push(playerId);
@@ -57,38 +89,41 @@ export const broadcastGameState = (gameId: string) => {
   const game = games.get(gameId);
   if (!game) return;
 
-  const state = { players: game.players, spectators: game.spectators };
-  const message = JSON.stringify({ type: 'GAME_STATE', state });
+  const state = {
+    gameId: game.id,
+    players: game.players.map(playerId => ({
+      id: playerId,
+      color: game.playerColors.get(playerId),
+      tokens: game.tokens.get(playerId) || [],
+    })),
+    currentTurn: game.currentTurn,
+    diceRoll: game.lastDiceRoll,
+    status: game.players.length < 2 ? 'WAITING' : 'PLAYING',
+    diceUsed: game.diceUsed,
+  };
+
+  const message = JSON.stringify({
+    type: 'GAME_STATE',
+    state,
+  });
 
   game.sockets.forEach(ws => {
-    if (ws.readyState === ws.OPEN) ws.send(message);
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(message);
+    }
   });
 };
 
 export const getGame = (gameId: string) => games.get(gameId);
-export const removeGame = (gameId: string) => {
-  const game = games.get(gameId);
-  if (!game) return;
-
-  // Clear timeout if it exists
-  if (game.timeoutId) {
-    clearTimeout(game.timeoutId);
-    game.timeoutId = null;
-  }
-
-  games.delete(gameId);
-};
-
 export const getAllGames = () => games;
 
 export const startGame = (gameId: string) => {
   const game = games.get(gameId);
-  if (!game) return;
+  if (!game || game.players.length < 2) return;
 
   game.currentTurn = 0;
-  game.positions = new Map(game.players.map(p => [p, 0])); // Initialize all players at start position
-  game.timeoutId = null;
-
+  game.lastDiceRoll = -1;
+  game.diceUsed = false;
   broadcastGameState(gameId);
   startTurnTimeout(gameId);
 };
@@ -106,64 +141,152 @@ export const nextTurn = (gameId: string) => {
   clearTurnTimeout(gameId);
 
   game.currentTurn = (game.currentTurn + 1) % game.players.length;
+  game.lastDiceRoll = -1;
+  game.diceUsed = false;
   broadcastGameState(gameId);
 
   startTurnTimeout(gameId);
 };
 
-export const moveToken = (gameId: string, playerId: string, steps: number) => {
+export const moveToken = (
+  gameId: string,
+  playerId: string,
+  tokenId: string,
+  steps: number
+) => {
   const game = games.get(gameId);
   if (!game) return;
 
-  const currentPos = game.positions.get(playerId) || 0;
-  const newPos = Math.min(currentPos + steps, WINNING_POSITION); // Prevent going beyond final position
-
-  game.positions.set(playerId, newPos);
-
-  // Check if the player wins
-  if (newPos === WINNING_POSITION) {
-    game.sockets
-      .get(playerId)
-      ?.send(JSON.stringify({ type: 'WINNER', message: `${playerId} wins!` }));
-    game.players = game.players.filter(p => p !== playerId);
-    if (game.players.length === 1) {
-      // Game ends when only one player is left
-      broadcastGameState(gameId);
-      removeGame(gameId);
-    }
-    return;
+  // Validate turn and player
+  if (getCurrentPlayer(gameId) !== playerId) {
+    throw new Error('Not your turn');
   }
 
-  // Check if player lands on an opponent's token (except in safe zones)
-  for (const [otherPlayer, pos] of game.positions.entries()) {
-    if (otherPlayer !== playerId && pos === newPos && !SAFE_ZONES.has(newPos)) {
-      game.positions.set(otherPlayer, 0); // Reset opponent to start
-      game.sockets
-        .get(otherPlayer)
-        ?.send(
-          JSON.stringify({ type: 'KNOCKOUT', message: 'You got knocked out!' })
-        );
+  const gameTokens = game.tokens.get(playerId) || [];
+  const token = gameTokens.find(t => t.id === tokenId);
+
+  if (!token) {
+    throw new Error('Invalid token');
+  }
+
+  // Starting Token Rules
+  const isStartingMove = token.position === 0 && steps === 6;
+  const newPos = isStartingMove
+    ? 1
+    : Math.min(token.position + steps, WINNING_POSITION);
+
+  // Prevent moving tokens that haven't started
+  if (token.position === 0 && steps !== 6) {
+    throw new Error('Need a 6 to start token');
+  }
+
+  // Capture Opponent Tokens Logic
+  game.players.forEach(otherPlayerId => {
+    if (otherPlayerId !== playerId) {
+      const otherTokens = game.tokens.get(otherPlayerId) || [];
+      otherTokens.forEach(otherToken => {
+        // Check if token lands on opponent's token and not in safe zone
+        if (otherToken.position === newPos && !SAFE_ZONES.has(newPos)) {
+          // Knock out the token
+          otherToken.position = 0;
+        }
+      });
     }
+  });
+
+  // Update token position
+  token.position = newPos;
+
+  game.diceUsed = true;
+
+  // Winning Condition Check
+  const playerTokens = game.tokens.get(playerId) || [];
+  const allTokensAtEnd = playerTokens.every(
+    t => t.position === WINNING_POSITION
+  );
+
+  if (allTokensAtEnd) {
+    broadcastGameState(gameId);
+    // Trigger win condition
+    game.sockets.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: 'WINNER',
+            message: `${playerId} wins the game ${gameId}!`,
+          })
+        );
+      }
+    });
+    removeGame(gameId);
+  }
+
+  // Determine next turn
+  if (steps !== 6) {
+    nextTurn(gameId);
   }
 
   broadcastGameState(gameId);
+};
+
+export const rollDice = (gameId: string, playerId: string): number => {
+  const game = games.get(gameId);
+  if (!game) throw new Error('Game not found');
+
+  // Validate it's the player's turn
+  if (getCurrentPlayer(gameId) !== playerId) {
+    throw new Error('Not your turn');
+  }
+
+  const diceRoll = Math.floor(Math.random() * 6) + 1;
+  game.lastDiceRoll = diceRoll;
+
+  console.log(`Player ${playerId} rolled ${diceRoll}`);
+  game.diceUsed = false; //reset diceused
+
+  const availabelTokens = game.tokens.get(playerId) || [];
+  // Check if any token can be moved
+  const canMove = availabelTokens.some(
+    token =>
+      (token.position === 0 && diceRoll === 6) ||
+      (token.position > 0 && token.position + diceRoll <= WINNING_POSITION)
+  );
+
+  if (!canMove) {
+    console.log(`No valid moves for player ${playerId}, passing turn.`);
+    nextTurn(gameId);
+  }
+
+  broadcastGameState(gameId);
+  return diceRoll;
 };
 
 export const startTurnTimeout = (gameId: string) => {
   const game = games.get(gameId);
   if (!game) return;
 
-  // Set timeout to automatically pass turn after 1 minute (60,000 ms)
+  // Set timeout to automatically pass turn after 1 minute
   game.timeoutId = setTimeout(() => {
     nextTurn(gameId);
-  }, 60000); // 1 minute timeout
+  }, 60000);
 };
 
-// Clear the timeout when the player takes an action
 export const clearTurnTimeout = (gameId: string) => {
   const game = games.get(gameId);
   if (game && game.timeoutId) {
     clearTimeout(game.timeoutId);
     game.timeoutId = null;
   }
+};
+
+export const removeGame = (gameId: string) => {
+  const game = games.get(gameId);
+  if (!game) return;
+
+  // Clear timeout if it exists
+  if (game.timeoutId) {
+    clearTimeout(game.timeoutId);
+  }
+
+  games.delete(gameId);
 };

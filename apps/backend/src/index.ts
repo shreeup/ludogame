@@ -1,74 +1,50 @@
 import express from 'express';
 import { Request, Response, NextFunction } from 'express';
-
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
-import {
-  createGame,
-  joinGame,
-  broadcastGameState,
-  getCurrentPlayer,
-  startGame,
-  nextTurn,
-  moveToken,
-  removeGame,
-  getAllGames,
-  clearTurnTimeout,
-  getGame,
-} from './gameManager';
 import cors from 'cors';
+import { createGame, removeGame, getAllGames, getGame } from './gameManager';
+import { messageHandlers } from './websocketHandler'; // New import
 
 const app = express();
-app.use((req: Request, res: Response, next: NextFunction) => {
-  next();
-}, cors({ maxAge: 84600 }));
+
+// Middleware setup
+app.use(cors({ maxAge: 84600 }));
+app.use(express.json());
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
+// WebSocket connection handler
 wss.on('connection', ws => {
   console.log('New client connected');
 
+  // Use the new message handler
   ws.on('message', data => {
-    const { type, gameId, playerId } = JSON.parse(data.toString());
-    console.log(`${type} new message came in`);
-    if (type === 'JOIN_GAME') {
-      const role = joinGame(gameId, playerId, ws as unknown as WebSocket);
-      if (role) {
-        if (role === 'player' && getCurrentPlayer(gameId) === undefined) {
-          startGame(gameId); // Start game when first player joins
-        }
-        broadcastGameState(gameId);
-      }
-    }
-    if (type === 'ROLL_DICE') {
-      const currentPlayer = getCurrentPlayer(gameId);
-      if (currentPlayer !== playerId) {
-        ws.send(JSON.stringify({ error: 'Not your turn!' }));
-        return;
-      }
-
-      const diceRoll = Math.floor(Math.random() * 6) + 1;
-      moveToken(gameId, playerId, diceRoll); // Move the token
-      broadcastGameState(gameId);
-
-      if (diceRoll !== 6) nextTurn(gameId); // Move to next player unless a 6 is rolled
-
-      // Stop the timeout because the player has made a move
-      clearTurnTimeout(gameId);
+    try {
+      messageHandlers.handleWebSocketMessage(ws, data.toString());
+    } catch (error) {
+      console.error('WebSocket message handling error:', error);
+      ws.send(
+        JSON.stringify({
+          type: 'ERROR',
+          message: 'Internal server error',
+        })
+      );
     }
   });
 
+  // Existing disconnection logic
   ws.on('close', () => {
-    console.log(`Client disconnected`);
+    console.log('Client disconnected');
 
-    // Find the game and player associated with this socket
     let gameIdToRemove: string | null = null;
     let playerIdToRemove: string | null = null;
-    let games = getAllGames();
+    const games = getAllGames();
 
     games.forEach((game, gameId) => {
       for (const [playerId, socket] of game.sockets.entries()) {
-        if (socket === (ws as unknown as WebSocket)) {
+        if (socket === ws) {
           gameIdToRemove = gameId;
           playerIdToRemove = playerId;
           break;
@@ -84,28 +60,31 @@ wss.on('connection', ws => {
       game.players = game.players.filter(p => p !== playerIdToRemove);
       game.sockets.delete(playerIdToRemove);
 
-      // If only one player remains, they win
+      // Handle game end conditions
       if (game.players.length === 1) {
         const winner = game.players[0];
-        game.sockets
-          .get(winner)
-          ?.send(
-            JSON.stringify({ type: 'WINNER', message: `${winner} wins!` })
-          );
-
-        removeGame(gameIdToRemove); // End game
+        game.sockets.get(winner)?.send(
+          JSON.stringify({
+            type: 'WINNER',
+            message: `${winner} wins!`,
+          })
+        );
+        removeGame(gameIdToRemove);
       } else {
-        // Move to the next player if it was their turn
+        // Adjust turn if necessary
         if (game.currentTurn >= game.players.length) {
           game.currentTurn = 0;
         }
-
-        broadcastGameState(gameIdToRemove);
       }
     }
   });
+
+  ws.on('error', err => {
+    console.error('WebSocket Server Error:', err);
+  });
 });
 
+// Game creation and management routes
 app.get('/create-game', (_, res) => {
   const gameId = createGame();
   res.json({ gameId });
@@ -116,19 +95,7 @@ app.get('/get-game/:id', (req, res) => {
   const gameData = getGame(gameId);
   res.json({ gameData });
 });
-// app.post(
-//   '/join-game',
-//   express.json(),
-//   async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-//     const { gameId, playerId } = req.body;
-//     if (!gameId || !playerId)
-//       return res.status(400).json({ error: 'Missing gameId or playerId' });
 
-//     const role = joinGame(gameId, playerId);
-//     if (!role) return res.status(404).json({ error: 'Game not found' });
-
-//     res.json({ role });
-//   }
-// );
-
-server.listen(5001, () => console.log('Server running on port 5001'));
+// Start server
+const PORT = process.env.PORT || 5001;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,20 +1,12 @@
-import { useState } from 'react';
-import Lobby from './components/Lobby';
+import React from 'react';
+import GameLobby from './components/GameLobby';
 import GameBoard from './components/GameBoard';
+import useGameStore from './stores/gameStore';
 
-const App = () => {
-  const [gameId, setGameId] = useState<string | null>(null);
-  const [playerId, setPlayerId] = useState<string | null>(null);
+const App: React.FC = () => {
+  const { gameState } = useGameStore();
 
-  return (
-    <div>
-      {gameId ? (
-        <GameBoard gameId={gameId} playerId={playerId} />
-      ) : (
-        <Lobby setGameId={setGameId} setPlayerId={setPlayerId} />
-      )}
-    </div>
-  );
+  return gameState ? <GameBoard /> : <GameLobby />;
 };
 
 export default App;

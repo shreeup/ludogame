@@ -1,3 +1,19 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ludo-green:oklch(70.1% 0.1787 141.59),
+  --color-ludo-red: oklch(61.39% 0.1987 26.68),
+  --color-ludo-yellow: oklch(78.76% 0.165783 75.5064),
+  --color-ludo-blue:oklch(61.52% 0.2108 256.1),
+}
+
+@layer base {
+  
+  div{
+    color:mediumseagreen
+  }
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
