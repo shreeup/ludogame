@@ -9,6 +9,7 @@ type PlayerColor = 'RED' | 'GREEN' | 'BLUE' | 'YELLOW';
 type Token = {
   id: string;
   position: number;
+  tokencolor: string;
 };
 
 type Game = {
@@ -69,10 +70,10 @@ export const joinGame = (
 
       // Initialize tokens for the player
       game.tokens.set(playerId, [
-        { id: `${playerId}_1`, position: 0 },
-        { id: `${playerId}_2`, position: 0 },
-        { id: `${playerId}_3`, position: 0 },
-        { id: `${playerId}_4`, position: 0 },
+        { id: `${playerId}_1`, position: 0, tokencolor: playerColor },
+        { id: `${playerId}_2`, position: 0, tokencolor: playerColor },
+        { id: `${playerId}_3`, position: 0, tokencolor: playerColor },
+        { id: `${playerId}_4`, position: 0, tokencolor: playerColor },
       ]);
 
       return 'player';
