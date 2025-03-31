@@ -16,6 +16,8 @@
     "@types/redis": "^4.0.10",
     "@types/websocket": "^1.0.10",
     "autoprefixer": "^10.4.21",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.6.2",
     "nanoid": "^5.1.5",
     "postcss": "^8.5.3",
     "react": "^19.0.0",
