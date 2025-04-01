@@ -89,12 +89,8 @@
 import React, { useEffect, useState } from 'react';
 import useGameStore from '../stores/gameStore';
 import { HomeIcon } from '@heroicons/react/24/solid';
-import {
-  UserCircleIcon,
-  StarIcon,
-  PlayIcon,
-  StopIcon,
-} from '@heroicons/react/24/solid';
+import { UserCircleIcon, PlayIcon, StopIcon } from '@heroicons/react/24/solid';
+import { StarIcon } from '@heroicons/react/24/outline';
 // const PlayIcon = () => (
 //   <svg
 //     xmlns="http://www.w3.org/2000/svg"
@@ -221,6 +217,7 @@ const LudoBoard = () => {
   }
 
   const handleRollDice = () => {
+    if (!gameState || gameState.status === 'FINISHED') return;
     if (gameState.diceRoll !== -1 && !gameState.diceUsed) {
       const hasUnmovedValidTokens = hasValidMoves();
 
@@ -234,6 +231,7 @@ const LudoBoard = () => {
   };
 
   const handleTokenClick = (tokenId: string) => {
+    if (!gameState || gameState.status === 'FINISHED') return;
     if (gameState.diceRoll === -1) {
       setErrorMessage('Roll the dice first!');
       return;
@@ -279,6 +277,11 @@ const LudoBoard = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      {gameState?.status === 'FINISHED' && gameState?.winner && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-2xl font-bold z-10">
+          🎉 Winner: {gameState.winner} 🎉
+        </div>
+      )}
       {errorMessage && (
         <div className="fixed top-4 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
           {errorMessage}
@@ -352,6 +355,15 @@ const LudoBoard = () => {
                     [5, 6, 8, 11, 14, 17].indexOf(val) >= 0 ? 'green' : ''
                   }`}
                 >
+                  {val == 6 && (
+                    <StarIcon
+                      key={'safe_6'}
+                      className="absolute w-6 h-6"
+                      style={{
+                        color: 'black',
+                      }}
+                    />
+                  )}
                   {cellTokenMapping[val] &&
                     cellTokenMapping[val].tokens.map((token, index) => (
                       <UserCircleIcon
@@ -385,10 +397,10 @@ const LudoBoard = () => {
                 gameState.players[1].tokens.map((tkn, ix) => {
                   return (
                     <div
-                      className={`${playerColors[1]} ${getTokenStatus(
-                        tkn,
-                        ix
-                      )}`}
+                      key={`player_1_token_${ix}`}
+                      className={` rounded-full  transition-all duration-300  flex items-center justify-center text-white font-bold  ${
+                        playerColors[1]
+                      } ${getTokenStatus(tkn, ix)}`}
                       onClick={() => {
                         if (1 === gameState.currentTurn) {
                           handleTokenClick(tkn.id);
@@ -423,6 +435,15 @@ const LudoBoard = () => {
                     [20, 26, 27, 28, 29, 30].indexOf(val) >= 0 ? 'red' : ''
                   }`}
                 >
+                  {val == 20 && (
+                    <StarIcon
+                      key={'safe_20'}
+                      className="absolute w-6 h-6"
+                      style={{
+                        color: 'black',
+                      }}
+                    />
+                  )}
                   {cellTokenMapping[val] &&
                     cellTokenMapping[val].tokens.map((token, index) => (
                       <UserCircleIcon
@@ -464,27 +485,72 @@ const LudoBoard = () => {
                     key={val + '_triangle'}
                   >
                     {cellTokenMapping[val] &&
-                      cellTokenMapping[val].tokens.map((token, index) => (
-                        <StarIcon
-                          key={index}
-                          className="absolute w-6 h-6"
-                          style={{
-                            top: `${index * 2}px`, // Stack tokens with slight offset
-                            color: token.tokencolor,
-                          }}
-                          onClick={() => {
-                            const firstCurrentPlayerToken = cellTokenMapping[
-                              val
-                            ].tokens.find(
-                              token =>
-                                token.tokencolor ===
-                                gameState.players[gameState.currentTurn].color // Ensure you have `currentPlayerColor` in state
-                            );
-                            if (firstCurrentPlayerToken)
-                              handleTokenClick(firstCurrentPlayerToken.id);
-                          }}
-                        />
+                      cellTokenMapping[val].tokens.map((_, index) => (
+                        // <StarIcon
+                        //   key={index}
+                        //   className="absolute w-6 h-6"
+                        //   style={{
+                        //     color: 'black',
+                        //     zIndex: 10000,
+                        //     left: 'calc(100% - 30px)',
+                        //     top: `calc(100% - ${index * 6}px)`,
+                        //   }}
+                        // />
+                        <></>
                       ))}
+                    <span
+                      style={{
+                        color: 'black',
+                        position: 'absolute',
+                        top: `${
+                          val == 2000
+                            ? 'calc(100% - 10px)'
+                            : val == 3000
+                            ? 'calc(100% - 30px)'
+                            : val == 1000
+                            ? ' unset'
+                            : val == 4000
+                            ? ' unset'
+                            : ' unset'
+                        }`,
+                        right: `${
+                          val == 2000
+                            ? ' unset'
+                            : val == 3000
+                            ? ' unset'
+                            : val == 1000
+                            ? ' unset'
+                            : val == 4000
+                            ? 'calc(100% - 40px)'
+                            : 'unset'
+                        }`,
+                        left: `${
+                          val == 2000
+                            ? 'calc(100% - 30px)'
+                            : val == 3000
+                            ? 'calc(100% - 5px)'
+                            : val == 1000
+                            ? 'calc(100% - 10px)'
+                            : val == 4000
+                            ? 'unset'
+                            : 'unset'
+                        }`,
+                        bottom: `${
+                          val == 2000
+                            ? 'calc(100% - 10px)'
+                            : val == 3000
+                            ? 'unset '
+                            : val == 1000
+                            ? 'calc(100% - 40px)'
+                            : val == 4000
+                            ? 'calc(100% - 20px)'
+                            : ''
+                        }`,
+                      }}
+                    >
+                      {cellTokenMapping[val] &&
+                        cellTokenMapping[val].tokens.length}
+                    </span>
                   </div>
                 );
               })}
@@ -500,9 +566,18 @@ const LudoBoard = () => {
                   data-cell={`${val}`}
                   key={`${val}`}
                   className={`${
-                    [43, 44, 45, 46, 47, 53].indexOf(val) >= 1 ? 'yellow' : ''
+                    [43, 44, 45, 46, 47, 53].indexOf(val) >= 0 ? 'yellow' : ''
                   }`}
                 >
+                  {val == 53 && (
+                    <StarIcon
+                      key={'safe_53'}
+                      className="absolute w-6 h-6"
+                      style={{
+                        color: 'black',
+                      }}
+                    />
+                  )}
                   {cellTokenMapping[val] &&
                     cellTokenMapping[val].tokens.map((token, index) => (
                       <UserCircleIcon
@@ -539,10 +614,10 @@ const LudoBoard = () => {
                 gameState.players[2].tokens.map((tkn, ix) => {
                   return (
                     <div
-                      className={`${playerColors[2]} ${getTokenStatus(
-                        tkn,
-                        ix
-                      )}`}
+                      key={`player_2_token_${ix}`}
+                      className={` rounded-full  transition-all duration-300  flex items-center justify-center text-white font-bold  ${
+                        playerColors[2]
+                      } ${getTokenStatus(tkn, ix)}`}
                       onClick={() => {
                         if (2 === gameState.currentTurn) {
                           handleTokenClick(tkn.id);
@@ -574,6 +649,15 @@ const LudoBoard = () => {
                     [56, 59, 62, 65, 67, 68].indexOf(val) >= 0 ? 'blue' : ''
                   }`}
                 >
+                  {val == 67 && (
+                    <StarIcon
+                      key={'safe_'}
+                      className="absolute w-6 h-6"
+                      style={{
+                        color: 'black',
+                      }}
+                    />
+                  )}
                   {cellTokenMapping[val] &&
                     cellTokenMapping[val].tokens.map((token, index) => (
                       <UserCircleIcon
@@ -607,10 +691,10 @@ const LudoBoard = () => {
                 gameState.players[3].tokens.map((tkn, ix) => {
                   return (
                     <div
-                      className={`${playerColors[3]} ${getTokenStatus(
-                        tkn,
-                        ix
-                      )}`}
+                      key={`player_3_token_${ix}`}
+                      className={` rounded-full  transition-all duration-300  flex items-center justify-center text-white font-bold  ${
+                        playerColors[3]
+                      } ${getTokenStatus(tkn, ix)}`}
                       onClick={() => {
                         if (3 === gameState.currentTurn) {
                           handleTokenClick(tkn.id);

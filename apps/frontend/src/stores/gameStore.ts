@@ -22,6 +22,7 @@ const GameStateSchema = z.object({
   diceRoll: z.number(),
   diceUsed: z.boolean(),
   status: z.enum(['WAITING', 'PLAYING', 'FINISHED']),
+  winner: z.string(),
 });
 
 type GameState = z.infer<typeof GameStateSchema>;
@@ -183,6 +184,14 @@ const useGameStore = create<GameStore>((set, get) => ({
           break;
         case 'DICE_ROLLED':
           console.log('Dice rolled:', message.diceRoll);
+          if (currentState) {
+            set({
+              gameState: {
+                ...currentState,
+                diceRoll: message.diceRoll,
+              },
+            });
+          }
           break;
         case 'TURN_PASSED':
           console.log(`Turn passed to player: ${message.nextPlayerId}`);
@@ -201,6 +210,15 @@ const useGameStore = create<GameStore>((set, get) => ({
           break;
         case 'WINNER':
           console.log('Game Winner:', message.message);
+          set(state => ({
+            gameState: state.gameState
+              ? {
+                  ...state.gameState,
+                  status: 'FINISHED',
+                  winner: message.message,
+                }
+              : null,
+          }));
           break;
       }
     } catch (error) {

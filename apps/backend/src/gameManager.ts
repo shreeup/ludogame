@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import WebSocket from 'ws';
 
-const SAFE_ZONES = new Set([0, 8, 13, 21, 26, 34, 39, 47, 52]); // Example safe positions
+const SAFE_ZONES = new Set([0, 1, 14, 27, 40]); // Example safe positions
 const WINNING_POSITION = 57; // Assuming 57 is the final position in Ludo
 
 type PlayerColor = 'RED' | 'GREEN' | 'BLUE' | 'YELLOW';
@@ -180,7 +180,6 @@ export const moveToken = (
   if (token.position === 0 && steps !== 6) {
     throw new Error('Need a 6 to start token');
   }
-
   // Capture Opponent Tokens Logic
   game.players.forEach(otherPlayerId => {
     if (otherPlayerId !== playerId) {
@@ -205,16 +204,15 @@ export const moveToken = (
   const allTokensAtEnd = playerTokens.every(
     t => t.position === WINNING_POSITION
   );
-
+  broadcastGameState(gameId);
   if (allTokensAtEnd) {
-    broadcastGameState(gameId);
     // Trigger win condition
     game.sockets.forEach(ws => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({
             type: 'WINNER',
-            message: `${playerId} wins the game ${gameId}!`,
+            message: `${playerId} (${playerTokens[0].tokencolor}) wins the game ${gameId}!`,
           })
         );
       }
