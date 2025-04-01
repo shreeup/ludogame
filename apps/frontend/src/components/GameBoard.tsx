@@ -715,8 +715,6 @@ const LudoBoard = () => {
           </div>
         </div>
       </div>
-
-      <div>Copyrights reserved {new Date().getFullYear()}</div>
     </div>
   );
 };
