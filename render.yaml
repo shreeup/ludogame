@@ -22,4 +22,3 @@ services:
     envVars:
       - key: PORT
         value: 5001
-`
