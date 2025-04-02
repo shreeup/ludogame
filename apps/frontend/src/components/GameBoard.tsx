@@ -1,5 +1,4 @@
-// Simple icon components to replace Heroicons
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import useGameStore from '../stores/gameStore';
 import { HomeIcon } from '@heroicons/react/24/solid';
 import { UserCircleIcon, PlayIcon, StopIcon } from '@heroicons/react/24/solid';
@@ -374,20 +373,6 @@ const LudoBoard = () => {
                     data-cell={val}
                     key={val + '_triangle'}
                   >
-                    {cellTokenMapping[val] &&
-                      cellTokenMapping[val].tokens.map((_, index) => (
-                        // <StarIcon
-                        //   key={index}
-                        //   className="absolute w-6 h-6"
-                        //   style={{
-                        //     color: 'black',
-                        //     zIndex: 10000,
-                        //     left: 'calc(100% - 30px)',
-                        //     top: `calc(100% - ${index * 6}px)`,
-                        //   }}
-                        // />
-                        <></>
-                      ))}
                     <span
                       style={{
                         color: 'black',
