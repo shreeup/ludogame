@@ -48,7 +48,9 @@ const useGameStore = create<GameStore>((set, get) => ({
   socket: null,
 
   createGame: async () => {
-    const response = await fetch('http://localhost:5001/create-game');
+    const response = await fetch(
+      `https://${import.meta.env.VITE_BACKEND_URL}/create-game`
+    );
     const { gameId } = await response.json();
     return gameId;
   },
@@ -158,7 +160,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
   },
   connectWebSocket: () => {
-    const socket = new WebSocket('ws://localhost:5001');
+    const socket = new WebSocket(`ws://${import.meta.env.VITE_BACKEND_URL}`);
 
     socket.onopen = () => {
       console.log('WebSocket connected');
