@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/ws': {
-          target: `ws://${env.VITE_BACKEND_URL}` || 'ws://localhost:5001',
+          target: `wss://${env.VITE_BACKEND_URL}` || 'ws://localhost:5001',
           ws: true,
         },
       },
