@@ -1,0 +1,25 @@
+services:
+  - name: ludo-frontend
+    type: web
+    runtime: node
+    repo: https://github.com/shreeup/ludogame.git
+    env: node
+    buildCommand: pnpm install && tsc -b && vite build
+    startCommand: vite
+    rootDir: packages/frontend
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://ludo-backend.onrender.com
+
+  - name: ludo-backend
+    type: web
+    runtime: node
+    repo: https://github.com/shreeup/ludogame.git
+    env: node
+    buildCommand: pnpm install
+    startCommand: pnpm tsx src/index.ts
+    rootDir: packages/backend
+    envVars:
+      - key: PORT
+        value: 5001
+`
