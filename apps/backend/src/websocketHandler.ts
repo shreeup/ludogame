@@ -1,7 +1,6 @@
 import WebSocket from 'ws';
 import { z } from 'zod';
 import {
-  createGame,
   joinGame,
   broadcastGameState,
   getCurrentPlayer,
