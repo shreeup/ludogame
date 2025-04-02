@@ -160,7 +160,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
   },
   connectWebSocket: () => {
-    const socket = new WebSocket(`ws://${import.meta.env.VITE_BACKEND_URL}`);
+    const socket = new WebSocket(`wss://${import.meta.env.VITE_BACKEND_URL}`);
 
     socket.onopen = () => {
       console.log('WebSocket connected');
