@@ -275,7 +275,6 @@ const LudoBoard = () => {
                         }}
                       />
                     ))}{' '}
-                  {val}
                 </div>
               );
             })}
@@ -355,7 +354,6 @@ const LudoBoard = () => {
                         }}
                       />
                     ))}{' '}
-                  {val}
                 </div>
               );
             })}
@@ -475,7 +473,6 @@ const LudoBoard = () => {
                         }}
                       />
                     ))}{' '}
-                  {val}
                 </div>
               );
             })}
@@ -555,7 +552,6 @@ const LudoBoard = () => {
                         }}
                       />
                     ))}
-                  {val}
                 </div>
               );
             })}
