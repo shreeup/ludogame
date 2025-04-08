@@ -49,7 +49,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   createGame: async () => {
     const response = await fetch(
-      `https://${import.meta.env.VITE_BACKEND_URL}/create-game`
+      `${import.meta.env.VITE_HTTP_BACKEND_URL}/create-game`
     );
     const { gameId } = await response.json();
     return gameId;
@@ -160,7 +160,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
   },
   connectWebSocket: () => {
-    const socket = new WebSocket(`wss://${import.meta.env.VITE_BACKEND_URL}`);
+    const socket = new WebSocket(`${import.meta.env.VITE_WS_BACKEND_URL}`);
 
     socket.onopen = () => {
       console.log('WebSocket connected');
@@ -186,14 +186,6 @@ const useGameStore = create<GameStore>((set, get) => ({
           break;
         case 'DICE_ROLLED':
           console.log('Dice rolled:', message.diceRoll);
-          if (currentState) {
-            set({
-              gameState: {
-                ...currentState,
-                diceRoll: message.diceRoll,
-              },
-            });
-          }
           break;
         case 'TURN_PASSED':
           console.log(`Turn passed to player: ${message.nextPlayerId}`);

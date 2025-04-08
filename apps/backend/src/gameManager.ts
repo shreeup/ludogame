@@ -55,7 +55,6 @@ export const joinGame = (
 ): string | null => {
   const game = games.get(gameId);
   if (!game) return null;
-
   if (!game.sockets.has(playerId)) {
     if (game.players.length < 4) {
       // Assign a color to the player
@@ -126,7 +125,7 @@ export const startGame = (gameId: string) => {
   game.lastDiceRoll = -1;
   game.diceUsed = false;
   broadcastGameState(gameId);
-  startTurnTimeout(gameId);
+  //startTurnTimeout(gameId);
 };
 
 export const getCurrentPlayer = (gameId: string): string | null => {

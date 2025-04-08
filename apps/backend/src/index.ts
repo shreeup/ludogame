@@ -65,7 +65,7 @@ wss.on('connection', ws => {
         game.sockets.get(winner)?.send(
           JSON.stringify({
             type: 'WINNER',
-            message: `${winner} wins!`,
+            message: `You (${winner}) win!`,
           })
         );
         removeGame(gameIdToRemove);
