@@ -28,6 +28,29 @@ type Game = {
 
 const COLORS: PlayerColor[] = ['RED', 'GREEN', 'BLUE', 'YELLOW'];
 
+const playerPaths: Record<string, number[]> = {
+  RED: [
+    -1, 20, 21, 22, 23, 24, 16, 13, 10, 7, 4, 1, 2, 3, 6, 9, 12, 15, 18, 37, 38,
+    39, 40, 41, 42, 48, 54, 53, 52, 51, 50, 49, 57, 60, 63, 66, 69, 72, 71, 70,
+    67, 64, 61, 58, 55, 36, 35, 34, 33, 32, 31, 25, 26, 27, 28, 29, 30, 2000,
+  ],
+  GREEN: [
+    -1, 6, 9, 12, 15, 18, 37, 38, 39, 40, 41, 42, 48, 54, 53, 52, 51, 50, 49,
+    57, 60, 63, 66, 69, 72, 71, 70, 67, 64, 61, 58, 55, 36, 35, 34, 33, 32, 31,
+    25, 19, 20, 21, 22, 23, 24, 16, 13, 10, 7, 4, 1, 2, 5, 8, 11, 14, 17, 3000,
+  ],
+  YELLOW: [
+    -1, 53, 52, 51, 50, 49, 57, 60, 63, 66, 69, 72, 71, 70, 67, 64, 61, 58, 55,
+    36, 35, 34, 33, 32, 31, 25, 19, 20, 21, 22, 23, 24, 16, 13, 10, 7, 4, 1, 2,
+    3, 6, 9, 12, 15, 18, 37, 38, 39, 40, 41, 42, 48, 47, 46, 45, 44, 43, 4000,
+  ],
+  BLUE: [
+    -1, 67, 64, 61, 58, 55, 36, 35, 34, 33, 32, 31, 25, 19, 20, 21, 22, 23, 24,
+    16, 13, 10, 7, 4, 1, 2, 3, 6, 9, 12, 15, 18, 37, 38, 39, 40, 41, 42, 48, 54,
+    53, 52, 51, 50, 49, 57, 60, 63, 66, 69, 72, 71, 68, 65, 62, 59, 56, 1000,
+  ],
+};
+
 const games = new Map<string, Game>();
 
 export const createGame = (): string => {
@@ -180,14 +203,24 @@ export const moveToken = (
     throw new Error('Need a 6 to start token');
   }
   // Capture Opponent Tokens Logic
+  const currentPlayerColor = game.playerColors.get(playerId);
+  const currentPlayerPath = playerPaths[currentPlayerColor || 'RED'];
+  const newBoardCell = currentPlayerPath[newPos];
   game.players.forEach(otherPlayerId => {
     if (otherPlayerId !== playerId) {
+      const otherPlayerColor = game.playerColors.get(otherPlayerId);
+      const otherPlayerPath = playerPaths[otherPlayerColor || 'RED'];
       const otherTokens = game.tokens.get(otherPlayerId) || [];
+
       otherTokens.forEach(otherToken => {
+        const otherBoardCell = otherPlayerPath[otherToken.position];
         // Check if token lands on opponent's token and not in safe zone
-        if (otherToken.position === newPos && !SAFE_ZONES.has(newPos)) {
-          // Knock out the token
-          otherToken.position = 0;
+        // if (otherToken.position === newPos && !SAFE_ZONES.has(newPos)) {
+        //   // Knock out the token
+        //   otherToken.position = 0;
+        // }
+        if (newBoardCell === otherBoardCell && !SAFE_ZONES.has(newPos)) {
+          otherToken.position = 0; // Send opponent token back to start
         }
       });
     }
